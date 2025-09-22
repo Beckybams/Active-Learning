@@ -1,4 +1,4 @@
-# Active Learning with Synthetic Data
+** Active Learning with Synthetic Data
 
 This project demonstrates **Active Learning** using a synthetic 2D dataset for binary classification.  
 Active Learning allows a model to learn efficiently by selecting the most *informative* samples to label instead of labeling everything at once.
