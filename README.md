@@ -60,7 +60,6 @@ Active learning settings (initial_samples, batch_size, n_queries)
 Query strategies (uncertainty, margin, entropy)
 
 📖 Reference
-Burr Settles (2009). Active Learning Literature Survey
-
+Becky bbpere07@gmail.com
 Scikit-learn Documentation
 
