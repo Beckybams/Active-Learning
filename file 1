@@ -1,0 +1,98 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_classification
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+
+# --------------------------
+# Generate synthetic data
+# --------------------------
+X, y = make_classification(
+    n_samples=500,
+    n_features=2,       # 2D for visualization
+    n_redundant=0,
+    n_informative=2,
+    n_clusters_per_class=1,
+    class_sep=1.5,
+    random_state=42
+)
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+
+# --------------------------
+# Active learning setup
+# --------------------------
+rng = np.random.RandomState(0)
+
+# start with 5 labeled points (randomly chosen)
+initial_idx = rng.choice(len(X_train), size=5, replace=False)
+labeled_idx = list(initial_idx)
+unlabeled_idx = [i for i in range(len(X_train)) if i not in labeled_idx]
+
+def plot_state(X, y, labeled_idx, clf, iteration):
+    # decision boundary
+    xx, yy = np.meshgrid(
+        np.linspace(X[:,0].min()-1, X[:,0].max()+1, 200),
+        np.linspace(X[:,1].min()-1, X[:,1].max()+1, 200)
+    )
+    Z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+
+    plt.figure(figsize=(6,6))
+    plt.contourf(xx, yy, Z, alpha=0.2)
+    plt.scatter(X[:,0], X[:,1], c=y, s=30, cmap='bwr', edgecolors='k', alpha=0.4)
+    plt.scatter(X[labeled_idx,0], X[labeled_idx,1], c=y[labeled_idx], 
+                cmap='bwr', edgecolors='yellow', s=120, marker='o', label="Labeled")
+    plt.title(f"Iteration {iteration}")
+    plt.legend()
+    plt.show()
+
+# --------------------------
+# Active learning loop
+# --------------------------
+clf = LogisticRegression(solver="lbfgs")
+
+n_queries = 15
+batch_size = 5
+history = []
+
+for it in range(n_queries):
+    # train on labeled data
+    clf.fit(X_train[labeled_idx], y_train[labeled_idx])
+    
+    # evaluate on test set
+    acc = accuracy_score(y_test, clf.predict(X_test))
+    history.append(acc)
+    print(f"Iteration {it:2d} - Labeled: {len(labeled_idx):3d} - Test Accuracy: {acc:.3f}")
+
+    # plot decision boundary
+    plot_state(X_train, y_train, labeled_idx, clf, it)
+    
+    # get model probabilities on unlabeled pool
+    probs = clf.predict_proba(X_train[unlabeled_idx])
+    uncertainty = 1 - np.max(probs, axis=1)  # smaller confidence = more uncertain
+    
+    # pick most uncertain samples
+    query_idx = np.argsort(-uncertainty)[:batch_size]
+    chosen = [unlabeled_idx[i] for i in query_idx]
+    
+    # add to labeled
+    labeled_idx.extend(chosen)
+    unlabeled_idx = [i for i in unlabeled_idx if i not in chosen]
+
+# Final evaluation
+final_acc = accuracy_score(y_test, clf.predict(X_test))
+print(f"Final Test Accuracy after Active Learning: {final_acc:.3f}")
+
+# Learning curve
+plt.figure(figsize=(7,5))
+plt.plot(range(len(history)), history, marker="o")
+plt.xlabel("Iteration")
+plt.ylabel("Test Accuracy")
+plt.title("Active Learning on Synthetic Data")
+plt.grid(True)
+plt.show()
